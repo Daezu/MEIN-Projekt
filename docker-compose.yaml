@@ -1,0 +1,63 @@
+
+
+services:
+  
+  # UserServiceDB
+  user-service-db:
+    container_name: user-service-db
+    hostname: user-service-db
+    networks:
+      - backnet
+    image: postgres:16.1
+    restart: on-failure
+    volumes:
+      - UserDB:/var/lib/postgresql/data
+      - ./init/UserDB/00-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_DB: userdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  # UserService
+  user-service:
+    container_name: user-service
+    hostname: user-service
+    networks:
+      - backnet
+    build:
+      context: ./UserService
+      dockerfile: Dockerfile
+    image: user-service
+    restart: on-failure
+    depends_on:
+      user-service-db:
+        condition: service_healthy
+
+  # API-Gateway
+  api-gateway:
+    container_name: api-gateway
+    hostname: api-gateway
+    networks:
+      - backnet
+    build:
+      context: ./APIGateway
+      dockerfile: Dockerfile
+    image: api-gateway
+    ports:
+      - "8080:8080"
+    restart: on-failure
+    depends_on:
+      user-service:
+        condition: service_started
+
+volumes:
+  UserDB:
+
+networks:
+  backnet:
+
